@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h2>Chatroom: {{ chatroom.name }}</h2>
+    <div id="chat-log" class="scrollable">
+        {% for message in messages %}
+            <p><strong>{{ message.sender.username }}:</strong> {{ message.content }} <em>{{ message.timestamp }}</em></p>
+        {% endfor %}
+    </div>
+
+    <input id="chat-message-input" type="text" size="100"><br>
+    <input id="chat-message-submit" type="button" value="Send">
+    {{ room_name|json_script:"room-name" }}
+    <script>
+        const username = "{{ request.user.username }}";  // Získa aktuálne prihláseného používateľa
+        document.getElementById('chat-log').scrollTop = document.getElementById('chat-log').scrollHeight;
+
+        const chatSocket = new WebSocket(
+            'ws://' + window.location.host
+            + '/ws/chat/' + '{{ chatroom.name }}' + '/');
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+
+            const message = data.message;
+            const recv_username = data.username;
+
+            if (recv_username != username) {
+                document.querySelector('#chat-log').innerHTML += `<p><strong>${recv_username}:</strong> ${message}</p>`;
+                document.getElementById('chat-log').scrollTop = document.getElementById('chat-log').scrollHeight;
+            }
+        };
+
+
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            const messageInputDom = document.querySelector('#chat-message-input');
+            const message = messageInputDom.value;
+            chatSocket.send(JSON.stringify({
+                'message': message,
+                'username': username
+            }));
+
+        const chatLogDom = document.querySelector('#chat-log');
+        chatLogDom.innerHTML += `<p><strong>${username}:</strong> ${message}</p>`;
+        document.getElementById('chat-log').scrollTop = document.getElementById('chat-log').scrollHeight;
+        messageInputDom.value = '';
+        };
+
+
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+        };
+    </script>
+{% endblock %}
